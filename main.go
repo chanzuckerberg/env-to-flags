@@ -9,7 +9,8 @@ import (
 	"strings"
 )
 
-func printReadCloser(readCloser io.Reader, writer io.Writer) {
+// printReadCloser prints from a ReadCloser until it's closed
+func printReadCloser(readCloser io.ReadCloser, writer io.Writer) {
 	for {
 		tmp := make([]byte, 1024)
 		_, err := readCloser.Read(tmp)
@@ -20,7 +21,8 @@ func printReadCloser(readCloser io.Reader, writer io.Writer) {
 	}
 }
 
-func runCmdPassthroughCustomIO(name string, arg []string, stdoutWriter io.Writer, stderrWriter io.Writer) error {
+// runCmdPassthrough runs a command streaming output to provided stdout and stderr writers
+func runCmdPassthrough(name string, arg []string, stdoutWriter io.Writer, stderrWriter io.Writer) error {
 	cmd := exec.Command(name, arg...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -33,10 +35,11 @@ func runCmdPassthroughCustomIO(name string, arg []string, stdoutWriter io.Writer
 	go printReadCloser(stdout, stdoutWriter)
 	go printReadCloser(stderr, stderrWriter)
 	cmd.Start()
-	cmd.Wait()
+	err = cmd.Wait()
 	return err
 }
 
+// getFlags parses flags for an executable given an environment
 func getFlags(cmd string, environ []string) ([]string, error) {
 	flags := []string{}
 	lowerCmd := strings.ToLower(cmd)
@@ -60,7 +63,8 @@ func getFlags(cmd string, environ []string) ([]string, error) {
 	return flags, nil
 }
 
-func foo(mainArgs []string, environ []string, stdout io.Writer, stderr io.Writer) {
+// runWithEnvFlags runs a command with flags parsed from environ
+func runWithEnvFlags(mainArgs []string, environ []string, stdout io.Writer, stderr io.Writer) error {
 	cmd := mainArgs[0]
 	args := mainArgs[1:]
 	flags, err := getFlags(cmd, environ)
@@ -68,10 +72,15 @@ func foo(mainArgs []string, environ []string, stdout io.Writer, stderr io.Writer
 		panic(err)
 	}
 	args = append(flags, args...)
-	fmt.Println(fmt.Sprintf("env-to-flags executing command: %s %v", cmd, strings.Join(args, " ")))
-	runCmdPassthroughCustomIO(cmd, args, stdout, stderr)
+	message := fmt.Sprintf("env-to-flags executing command: %s %v\n", cmd, strings.Join(args, " "))
+	stderr.Write([]byte(message))
+	return runCmdPassthrough(cmd, args, stdout, stderr)
 }
 
 func main() {
-	foo(os.Args[1:], os.Environ(), os.Stdin, os.Stderr)
+	err := runWithEnvFlags(os.Args[1:], os.Environ(), os.Stdin, os.Stderr)
+	if err != nil {
+		os.Stderr.WriteString(err.Error() + "\n")
+		os.Exit(1)
+	}
 }
