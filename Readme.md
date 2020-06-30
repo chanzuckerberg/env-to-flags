@@ -1,5 +1,7 @@
 # env-to-flags
 
+[![codecov](https://codecov.io/gh/chanzuckerberg/env-to-flags/branch/master/graph/badge.svg)](https://codecov.io/gh/chanzuckerberg/env-to-flags)
+
 Convert environment variables to cli flags for a command. Example:
 
 ```bash
